@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Quiz Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface2: #1a1a26;
+      --border: #1e1e2e;
+      --text: #e2e2f0;
+      --muted: #8888aa;
+      --accent1: #7c3aed;
+      --accent2: #06b6d4;
+      --accent3: #f472b6;
+      --success: #10b981;
+      --error: #f43f5e;
+      --grad: linear-gradient(135deg, var(--accent1), var(--accent2));
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--accent1); border-radius: 3px; }
+
+    /* ── Noise ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.5;
+    }
+
+    /* ── Layout ── */
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 5rem;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 2.8rem;
+    }
+
+    .header-badge {
+      display: inline-block;
+      padding: 0.3rem 0.9rem;
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.35);
+      border-radius: 999px;
+      font-size: 0.75rem;
+      color: #a78bfa;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .header h1 {
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #fff 30%, #a78bfa 60%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header p {
+      color: var(--muted);
+      margin-top: 0.6rem;
+      font-size: 0.95rem;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.6rem;
+      margin-bottom: 1.2rem;
+    }
+
+    /* ── Form ── */
+    label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    input[type="password"],
+    input[type="text"],
+    textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 0.75rem 1rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      resize: none;
+    }
+
+    input[type="password"]:focus,
+    input[type="text"]:focus,
+    textarea:focus {
+      border-color: var(--accent1);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+    }
+
+    textarea {
+      min-height: 130px;
+      line-height: 1.7;
+    }
+
+    .key-toggle {
+      position: absolute;
+      right: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0.25rem;
+      display: flex;
+      align-items: center;
+      transition: color 0.2s;
+    }
+    .key-toggle:hover { color: var(--text); }
+
+    .form-row {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+      align-items: flex-end;
+    }
+
+    .form-row > div { flex: 1; }
+
+    /* Count selector */
+    .count-group {
+      display: flex;
+      gap: 0.4rem;
+    }
+    .count-btn {
+      flex: 1;
+      padding: 0.75rem 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .count-btn.active {
+      background: rgba(124,58,237,0.2);
+      border-color: var(--accent1);
+      color: #c4b5fd;
+    }
+
+    /* Lang select */
+    select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 0.75rem 1rem;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238888aa' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      transition: border-color 0.2s;
+    }
+    select:focus { border-color: var(--accent1); outline: none; }
+
+    /* ── Generate button ── */
+    .btn-generate {
+      width: 100%;
+      padding: 0.9rem;
+      margin-top: 1.2rem;
+      background: var(--grad);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      box-shadow: 0 0 24px rgba(124,58,237,0.3);
+      transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .btn-generate:hover:not(:disabled) {
+      opacity: 0.9;
+      transform: translateY(-1px);
+      box-shadow: 0 0 36px rgba(124,58,237,0.45);
+    }
+    .btn-generate:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error/info banners ── */
+    .banner {
+      padding: 0.85rem 1.1rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      line-height: 1.5;
+    }
+    .banner-error {
+      background: rgba(244,63,94,0.1);
+      border: 1px solid rgba(244,63,94,0.3);
+      color: #fda4af;
+    }
+    .banner-icon { flex-shrink: 0; font-size: 1rem; }
+
+    /* ── Quiz area ── */
+    #quiz-area { display: none; }
+
+    .quiz-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+    }
+
+    .quiz-topic {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .quiz-topic strong {
+      color: #a78bfa;
+    }
+
+    .progress-bar-wrap {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-bottom: 1.8rem;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--grad);
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+
+    /* ── Question card ── */
+    .q-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.6rem;
+      margin-bottom: 1.2rem;
+      transition: border-color 0.3s;
+    }
+    .q-card.answered-correct { border-color: rgba(16,185,129,0.4); }
+    .q-card.answered-wrong   { border-color: rgba(244,63,94,0.35); }
+
+    .q-num {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      margin-bottom: 0.6rem;
+    }
+
+    .q-text {
+      font-size: 1.05rem;
+      font-weight: 600;
+      line-height: 1.6;
+      margin-bottom: 1.2rem;
+    }
+
+    .options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .option {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      padding: 0.75rem 1rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+      font-size: 0.95rem;
+      text-align: left;
+      color: var(--text);
+      width: 100%;
+      font-family: inherit;
+    }
+    .option:hover:not(:disabled) {
+      border-color: rgba(124,58,237,0.5);
+      background: rgba(124,58,237,0.08);
+      transform: translateX(3px);
+    }
+    .option:disabled { cursor: default; transform: none; }
+
+    .option-label {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: var(--border);
+      border: 1px solid var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+      color: var(--muted);
+    }
+
+    /* States */
+    .option.correct {
+      border-color: rgba(16,185,129,0.5);
+      background: rgba(16,185,129,0.08);
+    }
+    .option.correct .option-label {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+    }
+
+    .option.wrong {
+      border-color: rgba(244,63,94,0.4);
+      background: rgba(244,63,94,0.07);
+    }
+    .option.wrong .option-label {
+      background: var(--error);
+      border-color: var(--error);
+      color: #fff;
+    }
+
+    .option.show-correct {
+      border-color: rgba(16,185,129,0.4);
+      background: rgba(16,185,129,0.05);
+    }
+    .option.show-correct .option-label {
+      background: rgba(16,185,129,0.25);
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    /* ── Explanation ── */
+    .explanation {
+      margin-top: 1rem;
+      padding: 0.85rem 1rem;
+      background: rgba(124,58,237,0.07);
+      border: 1px solid rgba(124,58,237,0.2);
+      border-radius: 8px;
+      font-size: 0.88rem;
+      color: #c4b5fd;
+      line-height: 1.7;
+      display: none;
+    }
+    .explanation.visible { display: block; }
+    .explanation strong { color: #a78bfa; }
+
+    /* ── Result ── */
+    #result-area {
+      display: none;
+      text-align: center;
+      padding: 2rem 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      margin-top: 1.5rem;
+    }
+
+    .result-score {
+      font-size: 4rem;
+      font-weight: 800;
+      background: var(--grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 0.4rem;
+    }
+
+    .result-label {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .result-msg {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1.8rem;
+    }
+
+    .btn-retry {
+      padding: 0.75rem 2rem;
+      background: transparent;
+      border: 1px solid var(--accent1);
+      border-radius: 999px;
+      color: #a78bfa;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .btn-retry:hover {
+      background: rgba(124,58,237,0.12);
+      box-shadow: 0 0 20px rgba(124,58,237,0.25);
+    }
+
+    /* ── Back link ── */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--text); }
+
+    /* ── Responsive ── */
+    @media (max-width: 540px) {
+      .form-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <a href="../index.html" class="back-link">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    返回作品集
+  </a>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-badge">AI Powered</div>
+    <h1>🧠 AI Quiz Generator</h1>
+    <p>输入任何知识点，让 AI 帮你生成练习题</p>
+  </div>
+
+  <!-- Config card -->
+  <div class="card">
+    <label for="api-key">
+      <svg style="display:inline;vertical-align:-2px;margin-right:4px" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Claude API Key
+    </label>
+    <div class="input-wrap">
+      <input type="password" id="api-key" placeholder="sk-..." autocomplete="off" />
+      <button class="key-toggle" id="key-toggle" title="显示/隐藏">
+        <svg id="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Input card -->
+  <div class="card">
+    <label for="topic-input">知识点 / 文本内容</label>
+    <textarea id="topic-input" placeholder="例如：HTTP 协议的工作原理，包括请求方法、状态码、Header 等…&#10;&#10;或者直接粘贴一段课程笔记、文章内容，AI 会据此出题。"></textarea>
+
+    <div class="form-row">
+      <div>
+        <label>题目数量</label>
+        <div class="count-group">
+          <button class="count-btn" data-n="3">3题</button>
+          <button class="count-btn active" data-n="5">5题</button>
+          <button class="count-btn" data-n="10">10题</button>
+        </div>
+      </div>
+      <div>
+        <label for="lang-select">出题语言</label>
+        <select id="lang-select">
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn-generate" id="gen-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      生成题目
+    </button>
+  </div>
+
+  <!-- Error banner -->
+  <div id="error-banner" class="banner banner-error" style="display:none">
+    <span class="banner-icon">⚠️</span>
+    <span id="error-msg"></span>
+  </div>
+
+  <!-- Quiz -->
+  <div id="quiz-area">
+    <div class="quiz-header">
+      <div class="quiz-topic">话题：<strong id="quiz-topic-label"></strong></div>
+      <div class="quiz-topic" id="quiz-score-live"></div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+    <div id="questions-container"></div>
+    <div id="result-area">
+      <div class="result-score" id="result-score">0/5</div>
+      <div class="result-label">答题完成</div>
+      <div class="result-msg" id="result-msg"></div>
+      <button class="btn-retry" id="retry-btn">再来一次</button>
+    </div>
+  </div>
+
+</div>
+<script>
+  /* ── State ── */
+  let questionCount = 5;
+  let questions = [];
+  let answers = {};   // { idx: selectedOption }
+  let correctCount = 0;
+
+  /* ── Count selector ── */
+  document.querySelectorAll('.count-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.count-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      questionCount = parseInt(btn.dataset.n);
+    });
+  });
+
+  /* ── API key visibility toggle ── */
+  const keyInput = document.getElementById('api-key');
+  document.getElementById('key-toggle').addEventListener('click', () => {
+    const show = keyInput.type === 'password';
+    keyInput.type = show ? 'text' : 'password';
+    document.getElementById('eye-icon').innerHTML = show
+      ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+      : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  });
+
+  /* ── Generate ── */
+  document.getElementById('gen-btn').addEventListener('click', generate);
+
+  async function generate() {
+    const apiKey = keyInput.value.trim();
+    const topic  = document.getElementById('topic-input').value.trim();
+    const lang   = document.getElementById('lang-select').value;
+
+    hideError();
+
+    if (!apiKey) return showError('请先填写 Claude API Key。');
+    if (!topic)  return showError('请输入知识点或文本内容。');
+
+    const btn = document.getElementById('gen-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> 正在生成…';
+
+    const langInstruction = lang === 'zh'
+      ? '请用中文出题和解析。'
+      : 'Please write all questions, options and explanations in English.';
+
+    const prompt = `你是一位出题专家。根据以下内容，生成 ${questionCount} 道单选题。${langInstruction}
+
+内容：
+${topic}
+
+严格按照以下 JSON 格式输出，不要包含任何额外文字、markdown 代码块或注释：
+{
+  "questions": [
+    {
+      "question": "题目文字",
+      "options": ["A. 选项内容", "B. 选项内容", "C. 选项内容", "D. 选项内容"],
+      "answer": 0,
+      "explanation": "解析文字"
+    }
+  ]
+}
+
+说明：answer 是正确选项的索引（0=A, 1=B, 2=C, 3=D）。`;
+
+    try {
+      const res = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          max_tokens: 3000,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const raw  = data.choices?.[0]?.message?.content || '';
+
+      // Extract JSON — strip possible markdown fences
+      const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+      const parsed  = JSON.parse(jsonStr);
+
+      if (!parsed.questions?.length) throw new Error('返回格式有误，请重试。');
+
+      questions = parsed.questions;
+      answers   = {};
+      correctCount = 0;
+      renderQuiz(topic);
+
+    } catch (e) {
+      showError('生成失败：' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> 生成题目';
+    }
+  }
+
+  /* ── Render quiz ── */
+  function renderQuiz(topic) {
+    const area = document.getElementById('quiz-area');
+    const container = document.getElementById('questions-container');
+    const result = document.getElementById('result-area');
+
+    document.getElementById('quiz-topic-label').textContent =
+      topic.length > 40 ? topic.slice(0, 40) + '…' : topic;
+    document.getElementById('quiz-score-live').textContent = '';
+    document.getElementById('progress-bar').style.width = '0%';
+    result.style.display = 'none';
+    container.innerHTML = '';
+    area.style.display = 'block';
+    area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    questions.forEach((q, idx) => {
+      const card = document.createElement('div');
+      card.className = 'q-card';
+      card.id = `q-${idx}`;
+
+      const labels = ['A', 'B', 'C', 'D'];
+      const optionsHTML = q.options.map((opt, oi) => `
+        <button class="option" data-idx="${idx}" data-opt="${oi}">
+          <span class="option-label">${labels[oi]}</span>
+          <span>${escHtml(opt.replace(/^[A-D]\.\s*/i, ''))}</span>
+        </button>
+      `).join('');
+
+      card.innerHTML = `
+        <div class="q-num">第 ${idx + 1} 题 / ${questions.length}</div>
+        <div class="q-text">${escHtml(q.question)}</div>
+        <div class="options">${optionsHTML}</div>
+        <div class="explanation" id="exp-${idx}">
+          <strong>解析：</strong>${escHtml(q.explanation)}
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    container.querySelectorAll('.option').forEach(btn => {
+      btn.addEventListener('click', selectOption);
+    });
+  }
+
+  /* ── Select option ── */
+  function selectOption(e) {
+    const btn = e.currentTarget;
+    const idx = parseInt(btn.dataset.idx);
+    const opt = parseInt(btn.dataset.opt);
+
+    if (answers[idx] !== undefined) return;   // already answered
+    answers[idx] = opt;
+
+    const card     = document.getElementById(`q-${idx}`);
+    const correct  = questions[idx].answer;
+    const allOpts  = card.querySelectorAll('.option');
+    const expEl    = document.getElementById(`exp-${idx}`);
+
+    allOpts.forEach(b => b.disabled = true);
+
+    if (opt === correct) {
+      btn.classList.add('correct');
+      card.classList.add('answered-correct');
+      correctCount++;
+    } else {
+      btn.classList.add('wrong');
+      card.classList.add('answered-wrong');
+      allOpts[correct].classList.add('show-correct');
+    }
+
+    expEl.classList.add('visible');
+    updateProgress();
+
+    if (Object.keys(answers).length === questions.length) {
+      setTimeout(showResult, 500);
+    }
+  }
+
+  /* ── Progress ── */
+  function updateProgress() {
+    const done = Object.keys(answers).length;
+    const total = questions.length;
+    document.getElementById('progress-bar').style.width = `${(done / total) * 100}%`;
+    document.getElementById('quiz-score-live').textContent =
+      `${done}/${total} 已作答`;
+  }
+
+  /* ── Result ── */
+  function showResult() {
+    const total = questions.length;
+    const pct   = Math.round((correctCount / total) * 100);
+    const msgs  = [
+      [100, '🎉 满分！完全掌握！'],
+      [80,  '🌟 非常棒，继续保持！'],
+      [60,  '👍 不错，还有提升空间。'],
+      [40,  '📚 需要再复习一下哦。'],
+      [0,   '💪 继续加油，多练几次！'],
+    ];
+    const msg = msgs.find(([t]) => pct >= t)[1];
+
+    document.getElementById('result-score').textContent = `${correctCount}/${total}`;
+    document.getElementById('result-msg').textContent = msg;
+    const result = document.getElementById('result-area');
+    result.style.display = 'block';
+    result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* ── Retry ── */
+  document.getElementById('retry-btn').addEventListener('click', () => {
+    document.getElementById('quiz-area').style.display = 'none';
+    document.getElementById('topic-input').focus();
+  });
+
+  /* ── Helpers ── */
+  function showError(msg) {
+    document.getElementById('error-msg').textContent = msg;
+    document.getElementById('error-banner').style.display = 'flex';
+  }
+  function hideError() {
+    document.getElementById('error-banner').style.display = 'none';
+  }
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>
