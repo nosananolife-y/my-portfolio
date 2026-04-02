@@ -341,11 +341,11 @@
       margin-bottom: 1rem;
     }
 
-    /* reveal on scroll */
-    .reveal {
+    /* reveal on scroll — js adds .will-animate before observing */
+    .reveal { transition: opacity 0.7s ease, transform 0.7s ease; }
+    .reveal.will-animate {
       opacity: 0;
       transform: translateY(32px);
-      transition: opacity 0.7s ease, transform 0.7s ease;
     }
     .reveal.visible {
       opacity: 1;
@@ -861,8 +861,37 @@
     });
   }, { threshold: 0.05, rootMargin: '0px 0px -40px 0px' });
 
-  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  function initReveal() {
+    document.querySelectorAll('.reveal').forEach(el => {
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight) {
+        // In viewport or above — always show immediately
+        el.classList.remove('will-animate');
+        el.classList.add('visible');
+        observer.unobserve(el);
+      } else if (!el._observed) {
+        // Below fold — hide and let observer animate it in
+        el._observed = true;
+        el.classList.add('will-animate');
+        observer.observe(el);
+      }
+    });
+  }
+
+  initReveal();
+  // Poll for 2s to catch scroll restoration happening at any point
+  let _pollCount = 0;
+  const _poll = setInterval(() => {
+    initReveal();
+    if (++_pollCount >= 20) clearInterval(_poll);
+  }, 100);
 
   /* ── Navbar shrink on scroll ── */
   const nav = document.querySelector('nav');
-  window.addEventListener(
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 60);
+  });
+
+</script>
+</body>
+</html>
