@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>密码强度检测 · ZP Tools</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #a855f7;
+    --purple-dim: #7c3aed;
+    --cyan: #22d3ee;
+    --cyan-dim: #0891b2;
+    --bg: #080b14;
+    --bg2: #0d1120;
+    --bg3: #121829;
+    --border: rgba(168, 85, 247, 0.2);
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+    --red: #f43f5e;
+    --orange: #fb923c;
+    --yellow: #facc15;
+    --green: #4ade80;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    position: relative;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(168,85,247,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(168,85,247,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%);
+    top: -100px; left: -100px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glow-right {
+    position: fixed;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(34,211,238,0.08) 0%, transparent 70%);
+    bottom: -100px; right: -100px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 560px;
+    animation: fadeSlideIn 0.5s ease both;
+  }
+  .header { text-align: center; margin-bottom: 2.5rem; }
+  .badge {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--cyan);
+    border: 1px solid rgba(34,211,238,0.3);
+    padding: 0.25rem 0.75rem;
+    border-radius: 2px;
+    letter-spacing: 0.15em;
+    margin-bottom: 1rem;
+    background: rgba(34,211,238,0.05);
+  }
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--purple) 0%, var(--cyan) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+    margin-bottom: 0.5rem;
+  }
+  .subtitle { color: var(--text-dim); font-size: 0.875rem; font-weight: 300; }
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 0 40px rgba(124,58,237,0.08), 0 20px 60px rgba(0,0,0,0.4);
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--purple), var(--cyan), transparent);
+  }
+  .input-section { margin-bottom: 1.5rem; }
+  .input-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--cyan);
+    letter-spacing: 0.12em;
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+  .input-wrap { position: relative; display: flex; align-items: center; }
+  .password-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid rgba(168,85,247,0.25);
+    border-radius: 10px;
+    padding: 0.875rem 3rem 0.875rem 1.25rem;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .password-input:focus {
+    border-color: var(--purple);
+    box-shadow: 0 0 0 3px rgba(168,85,247,0.1), inset 0 0 20px rgba(168,85,247,0.04);
+  }
+  .toggle-eye {
+    position: absolute;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s;
+  }
+  .toggle-eye:hover { color: var(--purple); }
+  .strength-section { margin-bottom: 1.75rem; }
+  .strength-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.6rem; }
+  .strength-label-key { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--text-dim); letter-spacing: 0.1em; }
+  .strength-label-val { font-family: 'Share Tech Mono', monospace; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; transition: color 0.3s; }
+  .strength-bar-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 0.5rem; }
+  .strength-bar-fill { height: 100%; border-radius: 3px; width: 0%; transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s; }
+  .strength-dots { display: flex; gap: 0.4rem; }
+  .dot { height: 3px; flex: 1; border-radius: 2px; background: rgba(255,255,255,0.08); transition: background 0.3s, transform 0.2s; }
+  .dot.active { transform: scaleY(1.5); }
+  .hints-section { margin-bottom: 1.75rem; }
+  .hints-title { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--text-dim); letter-spacing: 0.1em; margin-bottom: 0.75rem; }
+  .hints-list { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
+  .hint-item { display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: var(--text-dim); transition: color 0.25s; }
+  .hint-item.pass { color: #4ade80; }
+  .hint-icon { width: 16px; height: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .divider { border: none; border-top: 1px solid rgba(168,85,247,0.12); margin: 1.75rem 0; }
+  .gen-label { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--cyan); letter-spacing: 0.12em; margin-bottom: 0.6rem; display: block; }
+  .gen-wrap { display: flex; gap: 0.75rem; align-items: center; }
+  .gen-output {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid rgba(34,211,238,0.15);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--cyan);
+    letter-spacing: 0.06em;
+    word-break: break-all;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    line-height: 1.4;
+    transition: border-color 0.2s;
+  }
+  .gen-output.has-value { border-color: rgba(34,211,238,0.35); box-shadow: 0 0 12px rgba(34,211,238,0.06); }
+  .gen-placeholder { color: var(--text-dim); font-style: italic; font-family: 'Outfit', sans-serif; font-size: 0.8rem; letter-spacing: 0; }
+  .btn-group { display: flex; flex-direction: column; gap: 0.5rem; }
+  .btn {
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: 0.8rem;
+    padding: 0.6rem 1rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    justify-content: center;
+  }
+  .btn-generate { background: linear-gradient(135deg, var(--purple-dim), var(--purple)); color: white; box-shadow: 0 4px 15px rgba(168,85,247,0.3); }
+  .btn-generate:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(168,85,247,0.45); }
+  .btn-copy { background: rgba(34,211,238,0.1); color: var(--cyan); border: 1px solid rgba(34,211,238,0.25); }
+  .btn-copy:hover { background: rgba(34,211,238,0.18); border-color: rgba(34,211,238,0.5); transform: translateY(-1px); }
+  .btn-copy.copied { background: rgba(74,222,128,0.1); color: #4ade80; border-color: rgba(74,222,128,0.3); }
+  .btn-use { margin-top: 0.75rem; width: 100%; background: rgba(168,85,247,0.08); color: var(--purple); border: 1px dashed rgba(168,85,247,0.3); font-size: 0.78rem; }
+  .btn-use:hover { background: rgba(168,85,247,0.14); border-style: solid; border-color: rgba(168,85,247,0.5); }
+  .len-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .len-label { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--text-dim); white-space: nowrap; }
+  .len-val { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--cyan); min-width: 24px; text-align: right; }
+  input[type="range"] { flex: 1; -webkit-appearance: none; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; outline: none; cursor: pointer; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, var(--purple), var(--cyan)); cursor: pointer; box-shadow: 0 0 8px rgba(168,85,247,0.5); }
+  .options-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .opt-chip { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: var(--text-dim); cursor: pointer; padding: 0.3rem 0.65rem; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; background: var(--bg3); transition: all 0.2s; user-select: none; }
+  .opt-chip input { display: none; }
+  .opt-chip.active { color: var(--purple); border-color: rgba(168,85,247,0.4); background: rgba(168,85,247,0.08); }
+  .footer { text-align: center; margin-top: 2rem; font-size: 0.75rem; color: var(--text-dim); font-family: 'Share Tech Mono', monospace; }
+  .footer a { color: var(--purple); text-decoration: none; }
+  @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @media (max-width: 480px) { .gen-wrap { flex-direction: column; } .btn-group { flex-direction: row; } }
+</style>
+</head>
+<body>
+<div class="glow-right"></div>
+<div class="container">
+  <div class="header">
+    <div class="badge">// SECURITY TOOL v1.0</div>
+    <h1>密码强度检测</h1>
+    <p class="subtitle">实时分析 · 智能建议 · 安全生成</p>
+  </div>
+  <div class="card">
+    <div class="input-section">
+      <label class="input-label" for="pwdInput">// INPUT PASSWORD</label>
+      <div class="input-wrap">
+        <input type="password" id="pwdInput" class="password-input" placeholder="在此输入密码..." autocomplete="new-password" spellcheck="false">
+        <button class="toggle-eye" id="toggleEye" title="显示/隐藏密码">
+          <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="strength-section">
+      <div class="strength-header">
+        <span class="strength-label-key">// STRENGTH</span>
+        <span class="strength-label-val" id="strengthText">—</span>
+      </div>
+      <div class="strength-bar-track">
+        <div class="strength-bar-fill" id="strengthBar"></div>
+      </div>
+      <div class="strength-dots" id="strengthDots">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+    <div class="hints-section">
+      <div class="hints-title">// CHECKLIST</div>
+      <ul class="hints-list" id="hintsList">
+        <li class="hint-item fail" data-rule="length">
+          <span class="hint-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
+          至少 8 个字符
+        </li>
+        <li class="hint-item fail" data-rule="upper">
+          <span class="hint-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
+          包含大写字母 (A-Z)
+        </li>
+        <li class="hint-item fail" data-rule="lower">
+          <span class="hint-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
+          包含小写字母 (a-z)
+        </li>
+        <li class="hint-item fail" data-rule="number">
+          <span class="hint-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
+          包含数字 (0-9)
+        </li>
+        <li class="hint-item fail" data-rule="special">
+          <span class="hint-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
+          包含特殊符号 (!@#$%^&amp;*)
+        </li>
+        <li class="hint-item fail" data-rule="long">
+          <span class="hint-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
+          长度达到 12 位以上（更安全）
+        </li>
+      </ul>
+    </div>
+    <hr class="divider">
+    <div class="gen-section">
+      <label class="gen-label">// GENERATE STRONG PASSWORD</label>
+      <div class="len-row">
+        <span class="len-label">LEN:</span>
+        <input type="range" id="lenSlider" min="12" max="32" value="16">
+        <span class="len-val" id="lenVal">16</span>
+      </div>
+      <div class="options-row">
+        <label class="opt-chip active" id="chip-upper"><input type="checkbox" id="opt-upper" checked> A-Z</label>
+        <label class="opt-chip active" id="chip-lower"><input type="checkbox" id="opt-lower" checked> a-z</label>
+        <label class="opt-chip active" id="chip-num"><input type="checkbox" id="opt-num" checked> 0-9</label>
+        <label class="opt-chip active" id="chip-sym"><input type="checkbox" id="opt-sym" checked> !@#…</label>
+      </div>
+      <div class="gen-wrap">
+        <div class="gen-output" id="genOutput">
+          <span class="gen-placeholder">点击生成按钮...</span>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-generate" id="btnGenerate">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+            生成
+          </button>
+          <button class="btn btn-copy" id="btnCopy" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            复制
+          </button>
+        </div>
+      </div>
+      <button class="btn btn-use" id="btnUse" disabled>↑ 用这个密码检测一下</button>
+    </div>
+  </div>
+  <div class="footer">
+    made by <a href="https://nosananolife-y.github.io/my-portfolio" target="_blank">张朴</a>
+    &nbsp;·&nbsp; 没有 bug，只有 feature
+  </div>
+</div>
+<script>
+const SVG_PASS = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg>';
+const SVG_FAIL = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
+
+const STRENGTH_CONFIG = [
+  { label: '极弱',   color: '#f43f5e', width: '12%'  },
+  { label: '弱',     color: '#fb923c', width: '30%'  },
+  { label: '一般',   color: '#facc15', width: '55%'  },
+  { label: '强',     color: '#4ade80', width: '80%'  },
+  { label: '非常强', color: '#22d3ee', width: '100%' },
+];
+
+function analyzePassword(pwd) {
+  const rules = {
+    length:  pwd.length >= 8,
+    upper:   /[A-Z]/.test(pwd),
+    lower:   /[a-z]/.test(pwd),
+    number:  /[0-9]/.test(pwd),
+    special: /[^A-Za-z0-9]/.test(pwd),
+    long:    pwd.length >= 12,
+  };
+  let score = Object.values(rules).filter(Boolean).length;
+  let level = score <= 1 ? 0 : score <= 2 ? 1 : score <= 3 ? 2 : score <= 4 ? 3 : 4;
+  return { rules, level };
+}
+
+function updateStrengthUI(pwd) {
+  const bar = document.getElementById('strengthBar');
+  const text = document.getElementById('strengthText');
+  const dots = document.querySelectorAll('.strength-dots .dot');
+  const hintEls = document.querySelectorAll('#hintsList .hint-item');
+
+  if (!pwd) {
+    bar.style.width = '0%'; bar.style.background = '';
+    text.textContent = '—'; text.style.color = '';
+    dots.forEach(d => { d.style.background = 'rgba(255,255,255,0.08)'; d.classList.remove('active'); });
+    hintEls.forEach(el => { el.classList.remove('pass'); el.classList.add('fail'); el.querySelector('.hint-icon').innerHTML = SVG_FAIL; });
+    return;
+  }
+
+  const { rules, level } = analyzePassword(pwd);
+  const cfg = STRENGTH_CONFIG[level];
+  bar.style.width = cfg.width;
+  bar.style.background = 'linear-gradient(90deg, ' + cfg.color + 'aa, ' + cfg.color + ')';
+  text.textContent = cfg.label;
+  text.style.color = cfg.color;
+
+  dots.forEach((d, i) => {
+    if (i <= level) { d.style.background = cfg.color; d.classList.add('active'); }
+    else { d.style.background = 'rgba(255,255,255,0.08)'; d.classList.remove('active'); }
+  });
+
+  hintEls.forEach(el => {
+    const pass = rules[el.dataset.rule];
+    el.classList.toggle('pass', pass);
+    el.classList.toggle('fail', !pass);
+    el.querySelector('.hint-icon').innerHTML = pass ? SVG_PASS : SVG_FAIL;
+  });
+}
+
+const pwdInput = document.getElementById('pwdInput');
+const toggleEye = document.getElementById('toggleEye');
+const eyeIcon = document.getElementById('eyeIcon');
+const EYE_OPEN = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+const EYE_CLOSED = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+let shown = false;
+
+toggleEye.addEventListener('click', () => {
+  shown = !shown;
+  pwdInput.type = shown ? 'text' : 'password';
+  eyeIcon.innerHTML = shown ? EYE_CLOSED : EYE_OPEN;
+});
+
+pwdInput.addEventListener('input', () => updateStrengthUI(pwdInput.value));
+
+const CHARS = {
+  upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  lower: 'abcdefghijklmnopqrstuvwxyz',
+  num:   '0123456789',
+  sym:   '!@#$%^&*()-_=+[]{}|;:,.<>?',
+};
+
+const lenSlider = document.getElementById('lenSlider');
+const lenVal = document.getElementById('lenVal');
+const btnGenerate = document.getElementById('btnGenerate');
+const genOutput = document.getElementById('genOutput');
+const btnCopy = document.getElementById('btnCopy');
+const btnUse = document.getElementById('btnUse');
+
+const chips = [
+  { chip: document.getElementById('chip-upper'), cb: document.getElementById('opt-upper') },
+  { chip: document.getElementById('chip-lower'), cb: document.getElementById('opt-lower') },
+  { chip: document.getElementById('chip-num'),   cb: document.getElementById('opt-num') },
+  { chip: document.getElementById('chip-sym'),   cb: document.getElementById('opt-sym') },
+];
+
+chips.forEach(({ chip, cb }) => {
+  chip.addEventListener('click', () => {
+    const newState = !cb.checked;
+    const activeCount = chips.filter(c => c.cb.checked).length;
+    if (!newState && activeCount <= 1) return;
+    cb.checked = newState;
+    chip.classList.toggle('active', newState);
+  });
+});
+
+lenSlider.addEventListener('input', () => { lenVal.textContent = lenSlider.value; });
+
+function generatePassword() {
+  const len = parseInt(lenSlider.value);
+  let pool = '';
+  const required = [];
+  if (document.getElementById('opt-upper').checked) { pool += CHARS.upper; required.push(CHARS.upper); }
+  if (document.getElementById('opt-lower').checked) { pool += CHARS.lower; required.push(CHARS.lower); }
+  if (document.getElementById('opt-num').checked)   { pool += CHARS.num;   required.push(CHARS.num);   }
+  if (document.getElementById('opt-sym').checked)   { pool += CHARS.sym;   required.push(CHARS.sym);   }
+  if (!pool) return '';
+
+  const arr = new Uint32Array(len + required.length);
+  crypto.getRandomValues(arr);
+  const result = required.map((chars, i) => chars[arr[i] % chars.length]);
+  for (let i = required.length; i < len; i++) result.push(pool[arr[i] % pool.length]);
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = arr[i] % (i + 1);
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result.join('');
+}
+
+let lastGenerated = '';
+
+btnGenerate.addEventListener('click', () => {
+  const pwd = generatePassword();
+  if (!pwd) return;
+  lastGenerated = pwd;
+  genOutput.textContent = pwd;
+  genOutput.classList.add('has-value');
+  btnCopy.disabled = false;
+  btnUse.disabled = false;
+  btnCopy.classList.remove('copied');
+  btnCopy.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> 复制';
+});
+
+btnCopy.addEventListener('click', () => {
+  if (!lastGenerated) return;
+  navigator.clipboard.writeText(lastGenerated).then(() => {
+    btnCopy.classList.add('copied');
+    btnCopy.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 已复制';
+    setTimeout(() => {
+      btnCopy.classList.remove('copied');
+      btnCopy.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2v1"/></svg> 复制';
+    }, 2000);
+  });
+});
+
+btnUse.addEventListener('click', () => {
+  if (!lastGenerated) return;
+  pwdInput.value = lastGenerated;
+  pwdInput.type = 'text';
+  shown = true;
+  eyeIcon.innerHTML = EYE_CLOSED;
+  updateStrengthUI(lastGenerated);
+  pwdInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  pwdInput.focus();
+});
+
+updateStrengthUI('');
+</script>
+</body>
+</html>
