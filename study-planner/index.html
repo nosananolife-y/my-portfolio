@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Study Planner · 张朴</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#07080f;
+  --surface:#0e1018;
+  --surface2:#141720;
+  --border:rgba(255,255,255,.07);
+  --text:#e8eaf0;
+  --muted:#5a5f72;
+  --purple:#8b5cf6;
+  --cyan:#22d3ee;
+  --green:#34d399;
+  --red:#f87171;
+  --yellow:#fbbf24;
+  /* onion warm palette */
+  --onion-5:#3d1a08;
+  --onion-4:#6b2f10;
+  --onion-3:#b05a2a;
+  --onion-2:#d4896a;
+  --onion-1:#f0dca0;
+  --onion-glow:rgba(176,90,42,.35);
+  --amber:#f59e0b;
+  --amber-l:#fcd34d;
+  --sans:'Outfit',sans-serif;
+  --mono:'DM Mono',monospace;
+}
+
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  min-height:100vh;
+  padding:0;
+  overflow-x:hidden;
+}
+
+/* ── Grid bg ── */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(139,92,246,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(139,92,246,.03) 1px,transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;z-index:0;
+}
+
+/* ── Layout ── */
+.app{
+  position:relative;z-index:1;
+  max-width:760px;
+  margin:0 auto;
+  padding:2rem 1.2rem 4rem;
+}
+
+/* ── Header ── */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:2rem;
+  padding-bottom:1.2rem;
+  border-bottom:1px solid var(--border);
+}
+.header-left h1{
+  font-size:1.4rem;font-weight:800;
+  background:linear-gradient(135deg,var(--purple),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.header-left p{
+  font-family:var(--mono);font-size:.68rem;
+  color:var(--muted);margin-top:.2rem;
+}
+
+/* ── Mode Toggle ── */
+.mode-toggle{
+  display:flex;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:4px;gap:4px;
+}
+.mode-btn{
+  padding:.45rem 1.1rem;
+  border-radius:9px;border:none;
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  font-family:var(--sans);font-size:.82rem;font-weight:600;
+  transition:all .25s;white-space:nowrap;
+}
+.mode-btn.active{
+  background:var(--surface2);
+  color:var(--text);
+  box-shadow:0 2px 8px rgba(0,0,0,.4);
+}
+.mode-btn.active.focus-active{
+  background:linear-gradient(135deg,rgba(176,90,42,.3),rgba(245,158,11,.2));
+  color:var(--amber-l);
+}
+
+/* ── Panel ── */
+.panel{display:none}
+.panel.active{display:block;animation:fadeIn .3s ease both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ════════════════════════════════
+   TASK MODE
+════════════════════════════════ */
+
+/* Stats row */
+.stats-row{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:.75rem;margin-bottom:1.5rem;
+}
+.stat-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:1rem;text-align:center;
+}
+.stat-num{
+  font-size:1.6rem;font-weight:800;
+  background:linear-gradient(135deg,var(--purple),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.stat-label{
+  font-family:var(--mono);font-size:.65rem;
+  color:var(--muted);margin-top:.2rem;
+  text-transform:uppercase;letter-spacing:.06em;
+}
+
+/* Progress bar */
+.progress-wrap{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:1rem 1.2rem;margin-bottom:1.5rem;
+}
+.progress-header{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:.6rem;
+}
+.progress-title{font-size:.8rem;font-weight:600;color:var(--muted)}
+.progress-pct{font-family:var(--mono);font-size:.75rem;color:var(--cyan)}
+.progress-track{
+  height:6px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;
+}
+.progress-fill{
+  height:100%;border-radius:99px;
+  background:linear-gradient(90deg,var(--purple),var(--cyan));
+  transition:width .5s ease;
+}
+
+/* Add task form */
+.add-form{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:1.1rem 1.2rem;
+  margin-bottom:1.2rem;
+  display:flex;flex-wrap:wrap;gap:.6rem;align-items:flex-end;
+}
+.form-field{display:flex;flex-direction:column;gap:.3rem;flex:1;min-width:120px}
+.form-field label{
+  font-family:var(--mono);font-size:.65rem;
+  color:var(--purple);text-transform:uppercase;letter-spacing:.08em;
+}
+.form-input,.form-select{
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(139,92,246,.25);
+  border-radius:8px;
+  padding:.55rem .8rem;
+  color:var(--text);
+  font-family:var(--sans);font-size:.85rem;
+  outline:none;transition:border-color .2s;
+}
+.form-input:focus,.form-select:focus{border-color:var(--purple)}
+.form-input::placeholder{color:var(--muted)}
+.form-select option{background:#1a1a2e}
+.form-field.grow{flex:2}
+
+.add-btn{
+  padding:.55rem 1.3rem;
+  background:linear-gradient(135deg,var(--purple),#6366f1);
+  border:none;border-radius:8px;
+  color:#fff;font-family:var(--sans);font-size:.85rem;font-weight:700;
+  cursor:pointer;white-space:nowrap;
+  transition:box-shadow .2s,transform .1s;
+  align-self:flex-end;
+}
+.add-btn:hover{box-shadow:0 0 20px rgba(139,92,246,.4)}
+.add-btn:active{transform:scale(.97)}
+
+/* Category filter */
+.filter-row{
+  display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;
+}
+.filter-chip{
+  padding:.3rem .85rem;border-radius:99px;
+  background:var(--surface);border:1px solid var(--border);
+  color:var(--muted);font-size:.75rem;font-weight:600;
+  cursor:pointer;transition:all .2s;
+}
+.filter-chip.active,.filter-chip:hover{
+  border-color:var(--purple);color:var(--purple);
+  background:rgba(139,92,246,.1);
+}
+
+/* Task list */
+.task-list{display:flex;flex-direction:column;gap:.55rem}
+
+.task-item{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:.85rem 1rem;
+  display:flex;align-items:center;gap:.85rem;
+  transition:border-color .2s,opacity .3s,transform .3s;
+  animation:slideIn .25s ease both;
+}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+
+.task-item:hover{border-color:rgba(139,92,246,.3)}
+.task-item.done{opacity:.45}
+.task-item.done .task-text{text-decoration:line-through;color:var(--muted)}
+
+.task-check{
+  width:20px;height:20px;border-radius:6px;
+  border:2px solid var(--border);
+  background:transparent;cursor:pointer;
+  flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+}
+.task-check.checked{
+  background:var(--green);border-color:var(--green);
+}
+.task-check.checked::after{
+  content:'✓';font-size:.7rem;color:#000;font-weight:900;
+}
+
+.task-body{flex:1;min-width:0}
+.task-text{font-size:.88rem;font-weight:500;line-height:1.4}
+.task-meta{
+  display:flex;gap:.5rem;align-items:center;margin-top:.3rem;flex-wrap:wrap;
+}
+
+.tag{
+  padding:.15rem .55rem;border-radius:99px;
+  font-family:var(--mono);font-size:.62rem;font-weight:500;
+}
+.tag-cs{background:rgba(139,92,246,.15);color:#a78bfa}
+.tag-intern{background:rgba(34,211,238,.12);color:#67e8f9}
+.tag-italian{background:rgba(244,114,182,.12);color:#f9a8d4}
+.tag-piano{background:rgba(251,191,36,.12);color:#fcd34d}
+.tag-other{background:rgba(255,255,255,.06);color:var(--muted)}
+
+.priority-dot{
+  width:7px;height:7px;border-radius:50%;flex-shrink:0;
+}
+.p-high{background:var(--red)}
+.p-mid{background:var(--yellow)}
+.p-low{background:var(--green)}
+
+.task-del{
+  background:none;border:none;cursor:pointer;
+  color:var(--muted);font-size:1rem;padding:.2rem;
+  opacity:0;transition:opacity .15s,color .15s;
+  line-height:1;flex-shrink:0;
+}
+.task-item:hover .task-del{opacity:1}
+.task-del:hover{color:var(--red)}
+
+.empty-state{
+  text-align:center;padding:3rem 1rem;
+  color:var(--muted);font-size:.85rem;
+  font-family:var(--mono);
+}
+
+/* ════════════════════════════════
+   FOCUS MODE (ONION)
+════════════════════════════════ */
+
+.focus-panel{
+  display:flex;flex-direction:column;align-items:center;
+  padding:1rem 0;
+}
+
+/* Session info */
+.session-info{
+  display:flex;gap:2rem;margin-bottom:2rem;
+}
+.sinfo{text-align:center}
+.sinfo-num{
+  font-size:1.5rem;font-weight:800;
+  color:var(--amber-l);font-family:var(--mono);
+}
+.sinfo-label{
+  font-family:var(--mono);font-size:.62rem;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.08em;
+}
+
+/* Onion SVG wrapper */
+.onion-wrap{
+  position:relative;
+  width:260px;height:260px;
+  margin-bottom:1.8rem;
+}
+
+.onion-svg{
+  width:100%;height:100%;
+  filter:drop-shadow(0 0 40px var(--onion-glow));
+  transition:filter .5s;
+}
+
+/* Each layer - indexed 1(inner) to 5(outer) */
+.onion-layer{
+  transition:transform .6s cubic-bezier(.34,1.56,.64,1),opacity .6s ease;
+  transform-origin:center center;
+}
+.onion-layer.peeled{
+  transform:scale(1.8) rotate(15deg);
+  opacity:0;
+}
+
+/* Timer ring overlay */
+.timer-ring{
+  position:absolute;inset:-18px;
+}
+.ring-track{
+  fill:none;stroke:rgba(255,255,255,.05);stroke-width:4;
+}
+.ring-fill{
+  fill:none;stroke:var(--amber);stroke-width:4;
+  stroke-linecap:round;
+  stroke-dasharray:0;
+  transition:stroke-dasharray .9s linear, stroke .5s;
+  transform-origin:center;transform:rotate(-90deg);
+}
+
+/* Timer display */
+.timer-display{
+  position:absolute;
+  inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  pointer-events:none;
+}
+.timer-time{
+  font-family:var(--mono);font-size:2.6rem;font-weight:500;
+  color:var(--amber-l);letter-spacing:.04em;
+  text-shadow:0 0 30px rgba(252,211,77,.4);
+}
+.timer-mode-label{
+  font-family:var(--mono);font-size:.68rem;
+  color:var(--muted);margin-top:.3rem;
+  text-transform:uppercase;letter-spacing:.1em;
+}
+
+/* Controls */
+.timer-controls{
+  display:flex;gap:.85rem;margin-bottom:2rem;align-items:center;
+}
+.ctrl-btn{
+  padding:.7rem 1.8rem;border-radius:10px;border:none;
+  cursor:pointer;font-family:var(--sans);font-size:.88rem;font-weight:700;
+  transition:all .2s;
+}
+.ctrl-start{
+  background:linear-gradient(135deg,#b05a2a,var(--amber));
+  color:#fff;
+  box-shadow:0 0 20px rgba(176,90,42,.3);
+}
+.ctrl-start:hover{box-shadow:0 0 30px rgba(245,158,11,.45)}
+.ctrl-reset{
+  background:var(--surface);
+  border:1px solid var(--border);
+  color:var(--muted);
+}
+.ctrl-reset:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
+
+/* Layers status */
+.layers-status{
+  display:flex;gap:.6rem;margin-bottom:1.8rem;
+}
+.layer-pip{
+  width:28px;height:28px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.85rem;
+  transition:all .4s;
+}
+.layer-pip.done{
+  border-color:var(--amber);
+  background:rgba(245,158,11,.15);
+  box-shadow:0 0 10px rgba(245,158,11,.3);
+}
+
+/* Session log */
+.session-log{
+  width:100%;max-width:400px;
+}
+.log-title{
+  font-family:var(--mono);font-size:.68rem;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.1em;
+  text-align:center;margin-bottom:.75rem;
+}
+.log-list{
+  display:flex;flex-direction:column;gap:.4rem;
+  max-height:160px;overflow-y:auto;
+}
+.log-item{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:.5rem .9rem;
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--mono);font-size:.72rem;animation:slideIn .2s ease;
+}
+.log-item-label{color:var(--text)}
+.log-item-time{color:var(--muted)}
+
+/* Celebration overlay */
+.celebration{
+  position:fixed;inset:0;z-index:999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(7,8,15,.85);backdrop-filter:blur(8px);
+  display:none;
+}
+.celebration.show{display:flex;animation:fadeIn .4s ease}
+.celeb-onion{font-size:5rem;animation:bounce 1s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-15px)}}
+.celeb-title{
+  font-size:1.6rem;font-weight:800;margin-top:1rem;
+  background:linear-gradient(135deg,var(--amber),var(--amber-l));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.celeb-sub{color:var(--muted);font-size:.9rem;margin-top:.5rem;text-align:center}
+.celeb-btn{
+  margin-top:1.5rem;padding:.7rem 2rem;
+  background:linear-gradient(135deg,#b05a2a,var(--amber));
+  border:none;border-radius:10px;
+  color:#fff;font-family:var(--sans);font-size:.9rem;font-weight:700;
+  cursor:pointer;
+}
+
+/* ── Footer ── */
+.footer{
+  text-align:center;margin-top:3rem;
+  font-family:var(--mono);font-size:.65rem;color:var(--muted);opacity:.4;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--purple);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>Study Planner</h1>
+      <p>张朴 · University of Kent CS</p>
+    </div>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btnTask" onclick="switchMode('task')">📋 任务</button>
+      <button class="mode-btn" id="btnFocus" onclick="switchMode('focus')">🧅 专注</button>
+    </div>
+  </div>
+
+  <!-- ══ TASK MODE ══ -->
+  <div class="panel active" id="panelTask">
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-num" id="statTotal">0</div>
+        <div class="stat-label">总任务</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statDone">0</div>
+        <div class="stat-label">已完成</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statFocus">0</div>
+        <div class="stat-label">专注轮次</div>
+      </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-wrap">
+      <div class="progress-header">
+        <span class="progress-title">今日完成率</span>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Add form -->
+    <div class="add-form">
+      <div class="form-field grow">
+        <label>任务内容</label>
+        <input class="form-input" id="taskInput" placeholder="添加新任务…" onkeydown="if(event.key==='Enter')addTask()"/>
+      </div>
+      <div class="form-field">
+        <label>分类</label>
+        <select class="form-select" id="taskCat">
+          <option value="cs">💻 CS课程</option>
+          <option value="intern">🎯 实习准备</option>
+          <option value="italian">🇮🇹 意大利语</option>
+          <option value="piano">📚 读书时间</option>
+          <option value="other">📌 其他</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>优先级</label>
+        <select class="form-select" id="taskPriority">
+          <option value="high">🔴 高</option>
+          <option value="mid" selected>🟡 中</option>
+          <option value="low">🟢 低</option>
+        </select>
+      </div>
+      <button class="add-btn" onclick="addTask()">+ 添加</button>
+    </div>
+
+    <!-- Filter chips -->
+    <div class="filter-row">
+      <div class="filter-chip active" onclick="setFilter('all',this)">全部</div>
+      <div class="filter-chip" onclick="setFilter('cs',this)">💻 CS课程</div>
+      <div class="filter-chip" onclick="setFilter('intern',this)">🎯 实习准备</div>
+      <div class="filter-chip" onclick="setFilter('italian',this)">🇮🇹 意大利语</div>
+      <div class="filter-chip" onclick="setFilter('piano',this)">📚 读书时间</div>
+      <div class="filter-chip" onclick="setFilter('other',this)">📌 其他</div>
+    </div>
+
+    <!-- Task list -->
+    <div class="task-list" id="taskList"></div>
+    <div class="empty-state" id="emptyState" style="display:none">
+      还没有任务，加一个吧！
+    </div>
+
+  </div>
+
+  <!-- ══ FOCUS MODE ══ -->
+  <div class="panel" id="panelFocus">
+    <div class="focus-panel">
+
+      <!-- Session count -->
+      <div class="session-info">
+        <div class="sinfo">
+          <div class="sinfo-num" id="focusTotalSessions">0</div>
+          <div class="sinfo-label">总轮次</div>
+        </div>
+        <div class="sinfo">
+          <div class="sinfo-num" id="focusOnions">0</div>
+          <div class="sinfo-label">剥完的洋葱 🧅</div>
+        </div>
+        <div class="sinfo">
+          <div class="sinfo-num" id="focusMinutes">0</div>
+          <div class="sinfo-label">专注分钟</div>
+        </div>
+      </div>
+
+      <!-- Onion + Timer ring -->
+      <div class="onion-wrap">
+        <!-- Timer ring SVG -->
+        <svg class="timer-ring" viewBox="0 0 296 296">
+          <circle class="ring-track" cx="148" cy="148" r="140"/>
+          <circle class="ring-fill" id="ringFill" cx="148" cy="148" r="140"/>
+        </svg>
+
+        <!-- Onion SVG -->
+        <svg class="onion-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="g5" cx="45%" cy="35%"><stop offset="0%" stop-color="#7a3d18"/><stop offset="100%" stop-color="#3d1a08"/></radialGradient>
+            <radialGradient id="g4" cx="45%" cy="35%"><stop offset="0%" stop-color="#9c4820"/><stop offset="100%" stop-color="#6b2f10"/></radialGradient>
+            <radialGradient id="g3" cx="45%" cy="35%"><stop offset="0%" stop-color="#d4763a"/><stop offset="100%" stop-color="#b05a2a"/></radialGradient>
+            <radialGradient id="g2" cx="45%" cy="35%"><stop offset="0%" stop-color="#e8a87a"/><stop offset="100%" stop-color="#c47850"/></radialGradient>
+            <radialGradient id="g1" cx="45%" cy="35%"><stop offset="0%" stop-color="#f5e8b0"/><stop offset="100%" stop-color="#e0c870"/></radialGradient>
+            <!-- green sprout -->
+            <linearGradient id="sprout" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#16a34a"/></linearGradient>
+          </defs>
+
+          <!-- Layer 5 - outermost dark skin -->
+          <g class="onion-layer" id="layer5">
+            <ellipse cx="100" cy="115" rx="75" ry="88" fill="url(#g5)" opacity=".95"/>
+            <!-- texture lines -->
+            <ellipse cx="100" cy="115" rx="75" ry="88" fill="none" stroke="rgba(0,0,0,.15)" stroke-width="1"/>
+            <path d="M60 60 Q100 30 140 60" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1.5"/>
+          </g>
+
+          <!-- Layer 4 -->
+          <g class="onion-layer" id="layer4">
+            <ellipse cx="100" cy="117" rx="62" ry="76" fill="url(#g4)"/>
+            <path d="M65 68 Q100 42 135 68" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="1"/>
+          </g>
+
+          <!-- Layer 3 -->
+          <g class="onion-layer" id="layer3">
+            <ellipse cx="100" cy="119" rx="50" ry="63" fill="url(#g3)"/>
+          </g>
+
+          <!-- Layer 2 -->
+          <g class="onion-layer" id="layer2">
+            <ellipse cx="100" cy="121" rx="38" ry="50" fill="url(#g2)"/>
+          </g>
+
+          <!-- Layer 1 - innermost pale yellow -->
+          <g class="onion-layer" id="layer1">
+            <ellipse cx="100" cy="123" rx="26" ry="36" fill="url(#g1)"/>
+          </g>
+
+          <!-- Sprout on top -->
+          <g id="sproutG">
+            <path d="M100 28 Q100 18 94 12" fill="none" stroke="url(#sprout)" stroke-width="3" stroke-linecap="round"/>
+            <path d="M100 24 Q107 16 112 18" fill="none" stroke="url(#sprout)" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M100 30 Q93 22 88 24" fill="none" stroke="url(#sprout)" stroke-width="2.5" stroke-linecap="round"/>
+          </g>
+
+          <!-- Bottom root nub -->
+          <ellipse cx="100" cy="200" rx="8" ry="4" fill="#2a1005" opacity=".6"/>
+        </svg>
+
+        <!-- Timer display overlay -->
+        <div class="timer-display">
+          <div class="timer-time" id="timerDisplay">25:00</div>
+          <div class="timer-mode-label" id="timerModeLabel">专注中</div>
+        </div>
+      </div>
+
+      <!-- Layer pips -->
+      <div class="layers-status" id="layerPips">
+        <div class="layer-pip" id="pip5">🧅</div>
+        <div class="layer-pip" id="pip4">🧅</div>
+        <div class="layer-pip" id="pip3">🧅</div>
+        <div class="layer-pip" id="pip2">🧅</div>
+        <div class="layer-pip" id="pip1">🧅</div>
+      </div>
+
+      <!-- Controls -->
+      <div class="timer-controls">
+        <button class="ctrl-btn ctrl-start" id="startBtn" onclick="toggleTimer()">▶ 开始专注</button>
+        <button class="ctrl-btn ctrl-reset" onclick="resetTimer()">↺ 重置</button>
+      </div>
+
+      <!-- Session log -->
+      <div class="session-log">
+        <div class="log-title">专注记录</div>
+        <div class="log-list" id="sessionLog">
+          <div class="empty-state" style="padding:1rem;font-size:.72rem">还没有记录，开始你的第一轮专注！</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="footer">张朴 · Study Planner · 数据本地保存</div>
+</div>
+
+<!-- Celebration overlay -->
+<div class="celebration" id="celebration">
+  <div class="celeb-onion">🧅</div>
+  <div class="celeb-title">一颗洋葱剥完啦！</div>
+  <div class="celeb-sub">完成了5轮专注，你很棒 🎉<br/>休息一下，喝点水吧</div>
+  <button class="celeb-btn" onclick="dismissCelebration()">继续下一颗</button>
+</div>
+
+<script>
+// ════════════════════════════════
+//  MODE SWITCH
+// ════════════════════════════════
+function switchMode(mode){
+  document.getElementById('panelTask').classList.toggle('active', mode==='task');
+  document.getElementById('panelFocus').classList.toggle('active', mode==='focus');
+  document.getElementById('btnTask').classList.toggle('active', mode==='task');
+  const focusBtn = document.getElementById('btnFocus');
+  focusBtn.classList.toggle('active', mode==='focus');
+  focusBtn.classList.toggle('focus-active', mode==='focus');
+}
+
+// ════════════════════════════════
+//  TASK MODE
+// ════════════════════════════════
+const CAT_LABELS = {cs:'💻 CS课程',intern:'🎯 实习准备',italian:'🇮🇹 意大利语',piano:'📚 读书时间',other:'📌 其他'};
+const PRI_CLASS  = {high:'p-high',mid:'p-mid',low:'p-low'};
+let tasks = [];
+let currentFilter = 'all';
+
+function loadTasks(){
+  try{ tasks = JSON.parse(localStorage.getItem('zp_tasks')||'[]'); }
+  catch{ tasks = []; }
+  // Seed default tasks if empty
+  if(tasks.length===0){
+    tasks = [
+      {id:Date.now()+1,text:'复习 Data Structures 期中考范围',cat:'cs',priority:'high',done:false},
+      {id:Date.now()+2,text:'整理 Network Security 笔记',cat:'cs',priority:'mid',done:false},
+      {id:Date.now()+3,text:'更新简历工作经历部分',cat:'intern',priority:'high',done:false},
+      {id:Date.now()+4,text:'练习 Duolingo 意大利语 20 分钟',cat:'italian',priority:'low',done:false},
+      {id:Date.now()+5,text:'阅读《人月神话》第一章',cat:'piano',priority:'low',done:true},
+    ];
+    saveTasks();
+  }
+  renderTasks();
+}
+
+function saveTasks(){ localStorage.setItem('zp_tasks', JSON.stringify(tasks)); }
+
+function addTask(){
+  const text = document.getElementById('taskInput').value.trim();
+  if(!text) return;
+  tasks.unshift({
+    id:Date.now(),
+    text,
+    cat:document.getElementById('taskCat').value,
+    priority:document.getElementById('taskPriority').value,
+    done:false
+  });
+  document.getElementById('taskInput').value='';
+  saveTasks();
+  renderTasks();
+}
+
+function toggleTask(id){
+  const t = tasks.find(x=>x.id===id);
+  if(t){ t.done=!t.done; saveTasks(); renderTasks(); }
+}
+
+function deleteTask(id){
+  tasks = tasks.filter(x=>x.id!==id);
+  saveTasks();
+  renderTasks();
+}
+
+function setFilter(cat, el){
+  currentFilter = cat;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderTasks();
+}
+
+function renderTasks(){
+  const filtered = currentFilter==='all' ? tasks : tasks.filter(t=>t.cat===currentFilter);
+  const list = document.getElementById('taskList');
+  const empty = document.getElementById('emptyState');
+
+  // Stats
+  const total = tasks.length, done = tasks.filter(t=>t.done).length;
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statDone').textContent  = done;
+  const pct = total===0?0:Math.round(done/total*100);
+  document.getElementById('progressPct').textContent  = pct+'%';
+  document.getElementById('progressFill').style.width = pct+'%';
+
+  if(filtered.length===0){
+    list.innerHTML=''; empty.style.display='block'; return;
+  }
+  empty.style.display='none';
+
+  list.innerHTML = filtered.map(t=>`
+    <div class="task-item ${t.done?'done':''}" id="task-${t.id}">
+      <div class="task-check ${t.done?'checked':''}" onclick="toggleTask(${t.id})"></div>
+      <div class="task-body">
+        <div class="task-text">${escHtml(t.text)}</div>
+        <div class="task-meta">
+          <span class="tag tag-${t.cat}">${CAT_LABELS[t.cat]}</span>
+          <span class="priority-dot ${PRI_CLASS[t.priority]}"></span>
+        </div>
+      </div>
+      <button class="task-del" onclick="deleteTask(${t.id})" title="删除">×</button>
+    </div>
+  `).join('');
+}
+
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+// ════════════════════════════════
+//  FOCUS / ONION TIMER
+// ════════════════════════════════
+const FOCUS_SEC  = 25 * 60;
+const BREAK_SEC  = 5  * 60;
+const TOTAL_LAYERS = 5;
+
+let timerRunning = false;
+let timerInterval = null;
+let currentSec = FOCUS_SEC;
+let isBreak = false;
+let layersDone = 0;        // layers peeled this onion (0-5)
+let totalSessions = 0;
+let totalOnions = 0;
+let totalFocusMin = 0;
+let sessionLog = [];
+
+function loadFocusData(){
+  try{
+    const d = JSON.parse(localStorage.getItem('zp_focus')||'{}');
+    totalSessions = d.sessions||0;
+    totalOnions   = d.onions||0;
+    totalFocusMin = d.minutes||0;
+    sessionLog    = d.log||[];
+    layersDone    = d.layersDone||0;
+  }catch{}
+  updateFocusStats();
+  updateOnionVisual();
+  renderSessionLog();
+}
+
+function saveFocusData(){
+  localStorage.setItem('zp_focus', JSON.stringify({
+    sessions:totalSessions, onions:totalOnions,
+    minutes:totalFocusMin, log:sessionLog.slice(-20),
+    layersDone
+  }));
+  // Sync session count to task panel
+  document.getElementById('statFocus').textContent = totalSessions;
+}
+
+function toggleTimer(){
+  if(timerRunning){ pauseTimer(); } else { startTimer(); }
+}
+
+function startTimer(){
+  timerRunning = true;
+  document.getElementById('startBtn').textContent = '⏸ 暂停';
+  timerInterval = setInterval(tick, 1000);
+}
+
+function pauseTimer(){
+  timerRunning = false;
+  document.getElementById('startBtn').textContent = '▶ 继续';
+  clearInterval(timerInterval);
+}
+
+function resetTimer(){
+  pauseTimer();
+  isBreak = false;
+  currentSec = FOCUS_SEC;
+  document.getElementById('startBtn').textContent = '▶ 开始专注';
+  updateTimerDisplay();
+  updateRing(FOCUS_SEC, FOCUS_SEC);
+}
+
+function tick(){
+  currentSec--;
+  updateTimerDisplay();
+  const total = isBreak ? BREAK_SEC : FOCUS_SEC;
+  updateRing(currentSec, total);
+
+  if(currentSec <= 0){
+    clearInterval(timerInterval);
+    timerRunning = false;
+    onTimerEnd();
+  }
+}
+
+function onTimerEnd(){
+  if(!isBreak){
+    // Completed a focus session
+    totalSessions++;
+    totalFocusMin += 25;
+    layersDone++;
+    const now = new Date();
+    sessionLog.unshift(`${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`);
+
+    updateFocusStats();
+    updateOnionVisual();
+    renderSessionLog();
+
+    if(layersDone >= TOTAL_LAYERS){
+      // Full onion done!
+      totalOnions++;
+      saveFocusData();
+      layersDone = 0;
+      updateFocusStats();
+      setTimeout(()=>{ document.getElementById('celebration').classList.add('show'); }, 600);
+    } else {
+      saveFocusData();
+      // Start break
+      isBreak = true;
+      currentSec = BREAK_SEC;
+      document.getElementById('timerModeLabel').textContent = '休息中 🌬️';
+      document.getElementById('startBtn').textContent = '▶ 开始休息';
+      updateTimerDisplay();
+      updateRing(BREAK_SEC, BREAK_SEC);
+    }
+  } else {
+    // Break done → focus
+    isBreak = false;
+    currentSec = FOCUS_SEC;
+    document.getElementById('timerModeLabel').textContent = '专注中';
+    document.getElementById('startBtn').textContent = '▶ 开始专注';
+    updateTimerDisplay();
+    updateRing(FOCUS_SEC, FOCUS_SEC);
+  }
+}
+
+function dismissCelebration(){
+  document.getElementById('celebration').classList.remove('show');
+  // Reset onion layers visual
+  for(let i=1;i<=5;i++){
+    const el=document.getElementById('layer'+i);
+    el.classList.remove('peeled');
+    document.getElementById('pip'+i).classList.remove('done');
+  }
+  // Start break after celebration
+  isBreak=true;
+  currentSec=BREAK_SEC;
+  document.getElementById('timerModeLabel').textContent='休息中 🌬️';
+  updateTimerDisplay();
+  updateRing(BREAK_SEC,BREAK_SEC);
+}
+
+function updateTimerDisplay(){
+  const m = Math.floor(currentSec/60).toString().padStart(2,'0');
+  const s = (currentSec%60).toString().padStart(2,'0');
+  document.getElementById('timerDisplay').textContent = m+':'+s;
+  document.getElementById('timerModeLabel').textContent = isBreak ? '休息中 🌬️' : '专注中';
+}
+
+// Ring: circumference of r=140 circle = 2π*140 ≈ 879.6
+const CIRC = 2 * Math.PI * 140;
+function updateRing(remaining, total){
+  const frac = remaining / total;
+  const filled = CIRC * (1 - frac);
+  const ring = document.getElementById('ringFill');
+  ring.style.strokeDasharray = `${filled} ${CIRC}`;
+  ring.style.stroke = isBreak ? 'var(--green)' : 'var(--amber)';
+}
+
+function updateOnionVisual(){
+  for(let i=1;i<=5;i++){
+    const el = document.getElementById('layer'+i);
+    const pip = document.getElementById('pip'+i);
+    // Layers peel from outside(5) to inside(1)
+    // layersDone=1 means layer5 is peeled
+    const shouldPeel = (6-i) <= layersDone;
+    el.classList.toggle('peeled', shouldPeel);
+    pip.classList.toggle('done', shouldPeel);
+  }
+}
+
+function updateFocusStats(){
+  document.getElementById('focusTotalSessions').textContent = totalSessions;
+  document.getElementById('focusOnions').textContent        = totalOnions;
+  document.getElementById('focusMinutes').textContent       = totalFocusMin;
+  document.getElementById('statFocus').textContent          = totalSessions;
+}
+
+function renderSessionLog(){
+  const el = document.getElementById('sessionLog');
+  if(sessionLog.length===0){
+    el.innerHTML='<div class="empty-state" style="padding:1rem;font-size:.72rem">还没有记录，开始你的第一轮专注！</div>';
+    return;
+  }
+  el.innerHTML = sessionLog.slice(0,10).map((t,i)=>`
+    <div class="log-item">
+      <span class="log-item-label">🧅 第 ${totalSessions-i} 轮专注</span>
+      <span class="log-item-time">${t}</span>
+    </div>
+  `).join('');
+}
+
+// ── Init ──
+loadTasks();
+loadFocusData();
+updateTimerDisplay();
+updateRing(FOCUS_SEC, FOCUS_SEC);
+</script>
+</body>
+</html>
